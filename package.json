@@ -1,0 +1,26 @@
+{
+  "name": "ts-rest-framework",
+  "version": "0.0.1",
+  "description": "Simple REST framework based on TypeScript and express",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/margarito/ts-rest-framework.git"
+  },
+  "keywords": [
+    "API",
+    "REST",
+    "TypeScript",
+    "nodejs",
+    "express"
+  ],
+  "author": "Olivier Margarit",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/margarito/ts-rest-framework/issues"
+  },
+  "homepage": "https://github.com/margarito/ts-rest-framework#readme"
+}
