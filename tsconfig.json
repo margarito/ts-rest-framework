@@ -1,0 +1,32 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "declaration": true,
+        "stripInternal": true,
+        "experimentalDecorators": true,
+        "strictNullChecks": true,
+        "noImplicitAny": true,
+        "module": "es2015",
+        "moduleResolution": "node",
+        "allowSyntheticDefaultImports": true,
+        "paths": {
+            "express": ["node_modules/express"],
+            "rxjs/*": ["node_modules/rxjs/*"]
+        },
+        "rootDir": ".",
+        "outDir": "dist",
+        "sourceMap": true,
+        "inlineSources": true,
+        "target": "es5",
+        "skipLibCheck": true,
+        "lib": [
+            "es2015"
+        ]
+    },
+    "files": [
+        "index.ts"
+    ],
+    "angularCompilerOptions": {
+        "strictMetadataEmit": true
+    }
+}
