@@ -13,7 +13,7 @@ for (const field of fieldsToCopy) {
     distPackage[field] = package[field];
 }
 
-distPackage.peerDependencies = {
+distPackage.dependencies = {
     '@types/body-parser': '^1.16.5',
     '@types/debug': '0.0.30',
     '@types/express': '^4.0.37',
