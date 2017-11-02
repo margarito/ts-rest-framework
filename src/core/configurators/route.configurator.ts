@@ -3,7 +3,7 @@ import { IAuthPermission } from '../interface/auth-permission.interface';
 import { IPermissionFilter } from '../interface/permission-filter.interface';
 import { RequestHandler } from 'express';
 
-export class RouteConfigurator<C> {
+export class RouteConfigurator {
     public path: string;
     public authFilter?: IAuthFilter;
     public addAuthFilters?: IAuthFilter[];
@@ -11,5 +11,4 @@ export class RouteConfigurator<C> {
     public permissionFilter?: IPermissionFilter;
     public addPermissionFilters?: IPermissionFilter[];
     public middlewares?: RequestHandler[];
-    public model?: {new(): C};
 }

@@ -1,3 +1,5 @@
+import { DbHelperModuleConfig } from 'ts-db-helper/src/core/db-helper-module-config';
+import { DbHelperModel, ModelMigration, QueryConnector, QueryManager } from 'ts-db-helper';
 import { Observer } from 'rxjs/Rx';
 import { RouteConfigurator } from './configurators/route.configurator';
 import { Observable } from 'rxjs/Observable';
@@ -36,6 +38,7 @@ export abstract class TsRestFrameworkApp {
     private authFilters = <IAuthFilter[]>[];
     private defaultAuthPermission: IAuthPermission;
     private defaultPermissionFilter: IPermissionFilter;
+    private dbConfig: DbHelperModuleConfig;
 
     // ref to Express instance
     public express: express.Application;
@@ -93,6 +96,10 @@ export abstract class TsRestFrameworkApp {
         }
     }
 
+    public setDbConfig(config: DbHelperModuleConfig) {
+        this.dbConfig = config;
+    }
+
     // Configure API endpoints.
     public import(view: {new(): INamespace|ViewSet<any>}, parentPath = this.pathBase): TsRestFrameworkApp {
         if (RouteManager.getInstance().isRegisteredNamespace(view)) {
@@ -110,7 +117,6 @@ export abstract class TsRestFrameworkApp {
         if (!bundle) {
             throw new Error('ViewSet "' + mViewset.name + '" has no configuration, did you miss "@Route" decorator on this ViewSet ?');
         }
-        const viewset = new mViewset();
         const router = express.Router();
         const routePath = this.appendPath(parentPath, bundle.config.path);
         if (bundle.config.middlewares && bundle.config.middlewares.length) {
@@ -123,9 +129,9 @@ export abstract class TsRestFrameworkApp {
         }
         console.info('add route: ' + routePath);
         for (const key in bundle.routes) {
-            if ((viewset as {[index: string]: any})[key] instanceof Function) {
+            if (Object.getOwnPropertyDescriptor(mViewset, key)) {
                 const endPointConfig =  bundle.routes[key];
-                this.addRoute(viewset, key, bundle.config, endPointConfig, router);
+                this.addRoute(mViewset, key, bundle.config, endPointConfig, router);
             } else {
                 throw new Error('"' + key + '" is not a method of "' + mViewset.name + '"');
             }
@@ -133,7 +139,7 @@ export abstract class TsRestFrameworkApp {
         this.express.use(routePath, router);
     }
 
-    private callEndPointAuthFilter(req: express.Request, routeConfig: RouteConfigurator<any>,
+    private callEndPointAuthFilter(req: express.Request, routeConfig: RouteConfigurator,
             endPointConfig: EndPointConfigurator): Observable<IUser> {
         let authFilters = <IAuthFilter[]>[];
         const authFilter = endPointConfig.authFilter || routeConfig.authFilter;
@@ -163,7 +169,7 @@ export abstract class TsRestFrameworkApp {
         });
     }
 
-    private callAuthPermissions(req: express.Request, routeConfig: RouteConfigurator<any>,
+    private callAuthPermissions(req: express.Request, routeConfig: RouteConfigurator,
             endPointConfig: EndPointConfigurator): Observable<PermissionResult> {
         const authPermission = endPointConfig.authPermission || routeConfig.authPermission || this.defaultAuthPermission;
         if (authPermission) {
@@ -176,7 +182,7 @@ export abstract class TsRestFrameworkApp {
         }
     }
 
-    private callPermissions(req: TRFRequest, routeConfig: RouteConfigurator<any>,
+    private callPermissions(req: TRFRequest, routeConfig: RouteConfigurator,
             endPointConfig: EndPointConfigurator): Observable<PermissionResult> {
         let permissionFilters = <IPermissionFilter[]>[];
         const permissionFilter = endPointConfig.permissionFilter || routeConfig.permissionFilter || this.defaultPermissionFilter;
@@ -221,7 +227,7 @@ export abstract class TsRestFrameworkApp {
         }
     }
 
-    private manageEndPointAuthFilter(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator<any>,
+    private manageEndPointAuthFilter(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator,
             endPointConfig: EndPointConfigurator, endPoint: Function) {
         let user: IUser;
         let err: any;
@@ -243,7 +249,7 @@ export abstract class TsRestFrameworkApp {
             });
     }
 
-    private manageEndPointAuthPermission(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator<any>,
+    private manageEndPointAuthPermission(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator,
             endPointConfig: EndPointConfigurator, endPoint: Function) {
         let result: PermissionResult;
         let err: any;
@@ -267,7 +273,7 @@ export abstract class TsRestFrameworkApp {
             });
     }
 
-    private manageEndPointPermissions(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator<any>,
+    private manageEndPointPermissions(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator,
             endPointConfig: EndPointConfigurator, endPoint: Function) {
         let result: PermissionResult;
         let err: any;
@@ -295,16 +301,17 @@ export abstract class TsRestFrameworkApp {
             });
     }
 
-    private addRoute(viewset: ViewSet<any>, key: string, routeConfig: RouteConfigurator<any>,
+    private addRoute(mViewset: { new(): ViewSet<DbHelperModel>}, key: string, routeConfig: RouteConfigurator,
             endPointConfig: EndPointConfigurator, router: express.Router) {
         if (!endPointConfig.path || endPointConfig.path[0] !== '/') {
             endPointConfig.path = '/' + endPointConfig.path;
         }
         endPointConfig.method = endPointConfig.method || 'get';
-        console.info(endPointConfig.method!.toUpperCase() +  ' ' + endPointConfig.path + ' => ' + viewset.constructor.name + '.' + key);
+        console.info(endPointConfig.method!.toUpperCase() +  ' ' + endPointConfig.path + ' => ' + mViewset.name + '.' + key);
         const endPoint = (req: express.Request, resp: express.Response, next: express.NextFunction) => {
+            const viewset = new mViewset();
             this.manageEndPointAuthFilter(req as TRFRequest, resp, routeConfig, endPointConfig,
-                (viewset as {[index: string]: Function})[key]);
+                (viewset as any)[key]);
         };
         if (TsRestFrameworkApp.methods.indexOf(endPointConfig.method!.toLowerCase()) !== -1) {
             (router as {[index: string]: any})[endPointConfig.method!](endPointConfig.path, endPoint);
@@ -337,6 +344,8 @@ export abstract class TsRestFrameworkApp {
     }
 
     public start() {
+        debug('init database');
+        QueryManager.init(this.dbConfig);
         debug('ts-express:server');
         const port = normalizePort(process.env.PORT || 3000);
         this.express.set('port', port);

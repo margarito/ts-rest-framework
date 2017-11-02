@@ -1,0 +1,3 @@
+[submodule "src/ts-db-helper"]
+	path = src/ts-db-helper
+	url = git@github.com:margarito/ts-db-helper.git

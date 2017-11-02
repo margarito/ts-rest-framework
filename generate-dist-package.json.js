@@ -5,7 +5,7 @@ const distPackage = {};
 
 const fieldsToCopy = ['name', 'version', 'license', 'description', 'author', 'keywords', 'repository', 'homepage', 'bugs'];
 
-distPackage.main = 'bundles/ng-db-helper.umd.js';
+distPackage.main = 'bundles/ts-rest-framework.cjs.js';
 distPackage.module = 'index.js';
 distPackage.typings = 'index.d.ts';
 
