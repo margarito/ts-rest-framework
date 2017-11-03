@@ -25,7 +25,8 @@ distPackage.dependencies = {
     'http': '0.0.0',
     'jsonwebtoken': '^8.0.1',
     'morgan': '^1.8.2',
-    'rxjs': '^5.1.0'
+    'rxjs': '^5.1.0',
+    'ts-db-helper': '^0.0.5'
 };
 
 fs.writeFile(path.join(__dirname, 'dist', 'package.json'), JSON.stringify(distPackage, null, 4), (err) => {

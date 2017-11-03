@@ -1,6 +1,6 @@
 {
     "name": "ts-rest-framework",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "Simple REST framework based on TypeScript and express",
     "main": "dist/bundles/ts-rest-framework.umd.js",
     "module": "dist/index.js",
@@ -44,7 +44,7 @@
         "jsonwebtoken": "^8.0.1",
         "morgan": "^1.8.2",
         "rxjs": "^5.1.0",
-        "ts-db-helper": "0.0.3"
+        "ts-db-helper": "0.0.5"
     },
     "devDependencies": {
         "copyfiles": "^1.2.0",
