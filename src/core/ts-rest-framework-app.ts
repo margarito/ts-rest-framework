@@ -1,5 +1,4 @@
-import { DbHelperModuleConfig } from 'ts-db-helper/src/core/db-helper-module-config';
-import { DbHelperModel, ModelMigration, QueryConnector, QueryManager } from 'ts-db-helper';
+import { DbHelperModel, ModelMigration, QueryConnector, QueryManager, DbHelperModuleConfig } from 'ts-db-helper';
 import { Observer } from 'rxjs/Rx';
 import { RouteConfigurator } from './configurators/route.configurator';
 import { Observable } from 'rxjs/Observable';
