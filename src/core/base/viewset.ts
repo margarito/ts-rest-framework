@@ -1,24 +1,26 @@
-import { Delete } from 'ts-db-helper';
-import { ModelManager } from 'ts-db-helper';
-import { SerializerError } from 'ts-db-helper';
-import { QueryResult } from 'ts-db-helper';
-import { Count } from 'ts-db-helper';
-import { Select } from 'ts-db-helper';
-import { Serializer } from 'ts-db-helper';
+import {
+    Delete,
+    ModelManager,
+    Serializer,
+    SerializerError,
+    QueryResult,
+    Count,
+    Select,
+    QuerySelect,
+    DbHelperModel,
+    AutoSerializer
+} from 'ts-db-helper';
 import { TRFRequest } from '../interface/request.interface';
-import { QuerySelect } from 'ts-db-helper';
-import { DbHelperModel } from 'ts-db-helper';
 import { Page } from '../public-api/page';
 import { Response } from 'express';
 import { Observable } from 'rxjs/Observable';
-import { AutoSerializer } from 'ts-db-helper';
 
 export abstract class ViewSet<T extends DbHelperModel> {
     protected model: {new(): T};
     protected query: QuerySelect<T>;
     protected serializer: {new(a?: any, b?: any, c?: any): Serializer<T>};
 
-    protected constructor() {
+    public constructor() {
         if (!this.query) {
             this.query = Select(this.model).setSize(50);
         }

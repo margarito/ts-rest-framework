@@ -3,7 +3,6 @@ import { RouteBundle } from '../internal/route-bundle';
 import { RouteManager } from '../managers/route.manager';
 import { ViewSet } from '../base/viewset';
 import { EndPointConfigurator } from '../configurators/end-point.configurator';
-import * as debug from 'debug';
 
 function endPointFactory<C extends DbHelperModel, T extends ViewSet<C>>(method: string, config: EndPointConfigurator): any {
     return function (target: {new(): T}, propertyKey: string, descriptor: PropertyDescriptor) {
