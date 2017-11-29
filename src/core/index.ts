@@ -1,6 +1,6 @@
 export { IsAutenticatedPermission } from './security/permissions/is-authenticated.permission';
 export { AnonymousPermission } from './security/permissions/anonymous.permission';
-export { NoAuthentiator } from './security/no-auth/no.authenticator';
+export { NoAuthenticator } from './security/no-auth/no.authenticator';
 export { NoAuthFilter } from './security/no-auth/no-auth.filter';
 export { JWTFilter } from './security/jwt/jwt.filter';
 export { JWTConfiguration } from './security/jwt/jwt.configuration';

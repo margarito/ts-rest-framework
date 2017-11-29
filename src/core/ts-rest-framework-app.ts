@@ -1,10 +1,9 @@
+import { EndPointBuilder } from './internal/endpoint-builder';
 import { DbHelperModel, ModelMigration, QueryConnector, QueryManager, DbHelperModuleConfig } from 'ts-db-helper';
-import { Observer } from 'rxjs/Rx';
 import { RouteConfigurator } from './configurators/route.configurator';
 import { Observable } from 'rxjs/Observable';
 import { IUser } from './interface/user.interface';
 import { IUserModel } from './interface/user-model.interface';
-import { IAuthFilter } from './interface/auth-filter.interface';
 import { IPermissionFilter } from './interface/permission-filter.interface';
 import { IAuthenticator } from './interface/authenticator.interface';
 import { INamespace } from './interface/namespace.interface';
@@ -12,10 +11,7 @@ import { IAuthPermission } from './interface/auth-permission.interface';
 import { EndPointConfigurator } from './configurators/end-point.configurator';
 import { RouteManager } from './managers/route.manager';
 import { ViewSet } from './base/viewset';
-import { TRFRequest } from './interface/request.interface';
 import { IsAutenticatedPermission } from './security/permissions/is-authenticated.permission';
-import { PermissionResult } from './public-api/permission-result';
-import { AuthFilterError } from './errors/auth-filter.error';
 import * as path from 'path';
 import * as express from 'express';
 import logger from 'morgan';
@@ -33,10 +29,7 @@ const Express = express;
 export abstract class TsRestFrameworkApp {
     private static methods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'connect', 'trace', 'all'];
     private pathBase = '/';
-    private userModel: IUserModel;
-    private authFilters = <IAuthFilter[]>[];
-    private defaultAuthPermission: IAuthPermission;
-    private defaultPermissionFilter: IPermissionFilter;
+
     private dbConfig: DbHelperModuleConfig;
 
     // ref to Express instance
@@ -61,7 +54,7 @@ export abstract class TsRestFrameworkApp {
             authRouter.use(bodyParser.urlencoded({ extended: false }));
             if (TsRestFrameworkApp.methods.indexOf(method.toLowerCase()) !== -1) {
                 (authRouter as any)[method]('/', (req: express.Request, resp: express.Response, next: express.NextFunction) => {
-                    authenticator.authenticate(req, resp, this.userModel);
+                    authenticator.authenticate(req, resp, EndPointBuilder.userModel);
                 });
             } else {
                 throw new Error('Try to add auth point with unknown method value: ' + method);
@@ -70,22 +63,22 @@ export abstract class TsRestFrameworkApp {
         }
 
         if (authenticator && authenticator.authFilter) {
-            this.authFilters.push(authenticator.authFilter);
+            EndPointBuilder.authFilters.push(authenticator.authFilter);
         }
 
-        this.defaultAuthPermission = new IsAutenticatedPermission();
+        EndPointBuilder.defaultAuthPermission = new IsAutenticatedPermission();
     }
 
     private setDefaultAuthPermission(authPermission: IAuthPermission) {
-        this.defaultAuthPermission = authPermission;
+        EndPointBuilder.defaultAuthPermission = authPermission;
     }
 
     private setDefaultPermissionFilter(permissionFilter: IPermissionFilter) {
-        this.defaultPermissionFilter = permissionFilter;
+        EndPointBuilder.defaultPermissionFilter = permissionFilter;
     }
 
     public setUserModel(userModel: IUserModel) {
-        this.userModel = userModel;
+        EndPointBuilder.userModel = userModel;
     }
 
     public setPathBase(base: string) {
@@ -126,178 +119,13 @@ export abstract class TsRestFrameworkApp {
             router.use(bodyParser.json());
             router.use(bodyParser.urlencoded({ extended: false }));
         }
-        console.info('add route: ' + routePath);
         for (const key in bundle.routes) {
-            if (Object.getOwnPropertyDescriptor(mViewset, key)) {
+            if (bundle.routes.hasOwnProperty(key)) {
                 const endPointConfig =  bundle.routes[key];
                 this.addRoute(mViewset, key, bundle.config, endPointConfig, router);
-            } else {
-                throw new Error('"' + key + '" is not a method of "' + mViewset.name + '"');
             }
         }
         this.express.use(routePath, router);
-    }
-
-    private callEndPointAuthFilter(req: express.Request, routeConfig: RouteConfigurator,
-            endPointConfig: EndPointConfigurator): Observable<IUser> {
-        let authFilters = <IAuthFilter[]>[];
-        const authFilter = endPointConfig.authFilter || routeConfig.authFilter;
-        if (authFilter) {
-            authFilters.push(authFilter);
-        }
-        if (authFilters.length === 0) {authFilters = authFilters.concat(this.authFilters); }
-        if (routeConfig.addAuthFilters) {authFilters = authFilters.concat(routeConfig.addAuthFilters); }
-        if (endPointConfig.addAuthFilters) {authFilters = authFilters.concat(endPointConfig.addAuthFilters); }
-        if (authFilters.length === 0) {
-            return Observable.empty();
-        } else {
-            return this.scanAuthFilters(req, authFilters, 0);
-        }
-    }
-
-    private scanAuthFilters(req: express.Request, authFilters: IAuthFilter[], index: number): Observable<IUser> {
-        return authFilters[index].filter(req, this.userModel).switchMap((user: IUser) => {
-            if (!user && index < authFilters.length - 1) {
-                return this.scanAuthFilters(req, authFilters, index + 1);
-            } else {
-                return Observable.create((observer: Observer<IUser>) => {
-                    observer.next(user);
-                    observer.complete();
-                });
-            }
-        });
-    }
-
-    private callAuthPermissions(req: express.Request, routeConfig: RouteConfigurator,
-            endPointConfig: EndPointConfigurator): Observable<PermissionResult> {
-        const authPermission = endPointConfig.authPermission || routeConfig.authPermission || this.defaultAuthPermission;
-        if (authPermission) {
-            return authPermission.check(req, this.userModel);
-        } else {
-            return Observable.create((observer: Observer<PermissionResult>) => {
-                observer.next(new PermissionResult(true));
-                observer.complete();
-            });
-        }
-    }
-
-    private callPermissions(req: TRFRequest, routeConfig: RouteConfigurator,
-            endPointConfig: EndPointConfigurator): Observable<PermissionResult> {
-        let permissionFilters = <IPermissionFilter[]>[];
-        const permissionFilter = endPointConfig.permissionFilter || routeConfig.permissionFilter || this.defaultPermissionFilter;
-        if (permissionFilter) {
-            permissionFilters.push(permissionFilter);
-        }
-        if (routeConfig.addPermissionFilters) {permissionFilters = permissionFilters.concat(routeConfig.addPermissionFilters); }
-        if (endPointConfig.addPermissionFilters) {permissionFilters = permissionFilters.concat(endPointConfig.addPermissionFilters); }
-        if (permissionFilters.length) {
-            return this.scanPermissionFilters(req, permissionFilters, 0);
-        } else {
-            return Observable.empty();
-        }
-    }
-
-    private scanPermissionFilters(req: TRFRequest, permissionFilters: IPermissionFilter[], index: number): Observable<PermissionResult> {
-        return permissionFilters[index].filter(req, this.userModel).switchMap((result: PermissionResult) => {
-            if (result.isOk && index < permissionFilters.length - 1) {
-                return this.scanPermissionFilters(req, permissionFilters, index + 1);
-            } else {
-                return Observable.create((observer: Observer<PermissionResult>) => {
-                    observer.next(result);
-                    observer.complete();
-                });
-            }
-        });
-    }
-
-    private manageEndPointError(req: express.Request, resp: express.Response, err: any) {
-        if (err instanceof AuthFilterError) {
-            resp.status(401);
-            resp.json({
-                reason: 'Invalid request authentication informations',
-                details: err.message
-            });
-        } else {
-            resp.status(500);
-            resp.json({
-                reason: 'Unhandled error',
-                details: err instanceof String ? err : JSON.stringify(err)
-            });
-        }
-    }
-
-    private manageEndPointAuthFilter(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator,
-            endPointConfig: EndPointConfigurator, endPoint: Function) {
-        let user: IUser;
-        let err: any;
-        this.callEndPointAuthFilter(req, routeConfig, endPointConfig)
-            .finally(() => {
-                if (err) {
-                    this.manageEndPointError(req, resp, err);
-                } else {
-                    if (user) {
-                        req.user = user;
-                    }
-                    this.manageEndPointAuthPermission(req, resp, routeConfig, endPointConfig, endPoint);
-                }
-            })
-            .subscribe((iUser: IUser) => {
-                user = iUser;
-            }, (authFilterErr: any) => {
-                err = authFilterErr;
-            });
-    }
-
-    private manageEndPointAuthPermission(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator,
-            endPointConfig: EndPointConfigurator, endPoint: Function) {
-        let result: PermissionResult;
-        let err: any;
-        this.callAuthPermissions(req, routeConfig, endPointConfig)
-            .finally(() => {
-                if (err) {
-                    this.manageEndPointError(req, resp, err);
-                } else if (!result || result.isOk) {
-                    this.manageEndPointPermissions(req, resp, routeConfig, endPointConfig, endPoint);
-                } else {
-                    resp.status(401);
-                    resp.json({
-                        reason: 'Request not authenticated',
-                        details: result ? result.rejectionReason : ''
-                    });
-                }
-            }).subscribe((permissionResult: PermissionResult) => {
-                result = permissionResult;
-            }, (authPermissionErr: any) => {
-                err = authPermissionErr;
-            });
-    }
-
-    private manageEndPointPermissions(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator,
-            endPointConfig: EndPointConfigurator, endPoint: Function) {
-        let result: PermissionResult;
-        let err: any;
-        this.callPermissions(req, routeConfig, endPointConfig)
-            .finally(() => {
-                if (err) {
-                    this.manageEndPointError(req, resp, err);
-                } else if (!result || result.isOk) {
-                    try {
-                        endPoint(req, resp);
-                    } catch (e) {
-                        this.manageEndPointError(req, resp, err);
-                    }
-                } else {
-                    resp.status(403);
-                    resp.json({
-                        reason: 'Request not authorized',
-                        details: result ? result.rejectionReason : ''
-                    });
-                }
-            }).subscribe((permissionResult: PermissionResult) => {
-                result = permissionResult;
-            }, (error: any) => {
-                err = error;
-            });
     }
 
     private addRoute(mViewset: { new(): ViewSet<DbHelperModel>}, key: string, routeConfig: RouteConfigurator,
@@ -306,12 +134,7 @@ export abstract class TsRestFrameworkApp {
             endPointConfig.path = '/' + endPointConfig.path;
         }
         endPointConfig.method = endPointConfig.method || 'get';
-        console.info(endPointConfig.method!.toUpperCase() +  ' ' + endPointConfig.path + ' => ' + mViewset.name + '.' + key);
-        const endPoint = (req: express.Request, resp: express.Response, next: express.NextFunction) => {
-            const viewset = new mViewset();
-            this.manageEndPointAuthFilter(req as TRFRequest, resp, routeConfig, endPointConfig,
-                (viewset as any)[key]);
-        };
+        const endPoint = EndPointBuilder.build(mViewset, key, routeConfig, endPointConfig, router);
         if (TsRestFrameworkApp.methods.indexOf(endPointConfig.method!.toLowerCase()) !== -1) {
             (router as {[index: string]: any})[endPointConfig.method!](endPointConfig.path, endPoint);
         } else {

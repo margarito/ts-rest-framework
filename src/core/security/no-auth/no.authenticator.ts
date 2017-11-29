@@ -3,7 +3,7 @@ import { IUserModel } from '../../interface/user-model.interface';
 import { Request, Response, NextFunction } from 'express';
 import { NoAuthFilter } from './no-auth.filter';
 
-export class NoAuthentiator implements IAuthenticator {
+export class NoAuthenticator implements IAuthenticator {
 
     public authFilter = new NoAuthFilter();
 
