@@ -13,6 +13,7 @@ import { IUser } from '../interface/user.interface';
 import { PermissionResult } from '../public-api/permission-result';
 import { IPermissionFilter } from '../interface/permission-filter.interface';
 import * as express from 'express';
+import { Log } from '../internal/log';
 
 export class EndPointBuilder {
     public static userModel: IUserModel;
@@ -24,15 +25,24 @@ export class EndPointBuilder {
     endPointConfig: EndPointConfigurator, router: express.Router): Function {
         const endpointDescription = endPointConfig.method!.toUpperCase() +  ' ' + routeConfig.path + endPointConfig.path
             + ' => ' + mViewset.name + '.' + key;
+        Log.i(endpointDescription);
         return (req: express.Request, resp: express.Response, next: express.NextFunction) => {
-            console.log(endpointDescription);
+            Log.d(endpointDescription);
             if (req.body) {
-                console.log('body: ' + JSON.stringify(req.body));
+                Log.d('body: ' + JSON.stringify(req.body));
             }
-            const viewset = new mViewset();
-            console.log('viewset created');
-            EndPointBuilder.manageEndPointAuthFilter(req as TRFRequest, resp, routeConfig, endPointConfig,
-                (viewset as any)[key]);
+            try {
+                const viewset = new mViewset();
+                EndPointBuilder.manageEndPointAuthFilter(req as TRFRequest, resp, routeConfig, endPointConfig,
+                    viewset, key);
+            } catch (e) {
+                Log.e(e);
+                resp.status(500);
+                resp.json({
+                    reason: 'Unhandled error',
+                    details: e
+                });
+            }
         };
     }
 
@@ -44,17 +54,17 @@ export class EndPointBuilder {
                 details: err.message
             });
         } else {
-            console.error(err);
+            Log.e(err);
             resp.status(500);
             resp.json({
                 reason: 'Unhandled error',
-                details: err instanceof String ? err : JSON.stringify(err)
+                details: err instanceof String ? err : err.toString()
             });
         }
     }
 
     private static manageEndPointAuthFilter(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator,
-        endPointConfig: EndPointConfigurator, endPoint: Function) {
+        endPointConfig: EndPointConfigurator, viewset: ViewSet<any>, key: string) {
         let user: IUser;
         let err: any;
         EndPointBuilder.callEndPointAuthFilter(req, routeConfig, endPointConfig)
@@ -65,13 +75,13 @@ export class EndPointBuilder {
                     if (user) {
                         req.user = user;
                     }
-                    EndPointBuilder.manageEndPointAuthPermission(req, resp, routeConfig, endPointConfig, endPoint);
+                    EndPointBuilder.manageEndPointAuthPermission(req, resp, routeConfig, endPointConfig, viewset, key);
                 }
             })
             .subscribe((iUser: IUser) => {
                 user = iUser;
             }, (authFilterErr: any) => {
-                console.error(err);
+                Log.e(err);
                 err = authFilterErr;
             });
     }
@@ -81,8 +91,8 @@ export class EndPointBuilder {
         let edpFilters = <IAuthFilter[]>[];
         const authFilter = endPointConfig.authFilter || routeConfig.authFilter;
         if (authFilter) {
-            console.log(endPointConfig.authFilter ? endPointConfig.authFilter.constructor.name : 'no enpoint filter');
-            console.log(routeConfig.authFilter ? routeConfig.authFilter.constructor.name : 'no route filter');
+            Log.d(endPointConfig.authFilter ? endPointConfig.authFilter.constructor.name : 'no enpoint filter');
+            Log.d(routeConfig.authFilter ? routeConfig.authFilter.constructor.name : 'no route filter');
             edpFilters.push(authFilter);
         }
         if (!edpFilters.length) {edpFilters = edpFilters.concat(EndPointBuilder.authFilters); }
@@ -111,7 +121,7 @@ export class EndPointBuilder {
     }
 
     private static manageEndPointAuthPermission(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator,
-        endPointConfig: EndPointConfigurator, endPoint: Function) {
+        endPointConfig: EndPointConfigurator, viewset: ViewSet<any>, key: string) {
         let result: PermissionResult;
         let err: any;
         EndPointBuilder.callAuthPermissions(req, routeConfig, endPointConfig)
@@ -119,7 +129,7 @@ export class EndPointBuilder {
                 if (err) {
                     EndPointBuilder.manageEndPointError(req, resp, err);
                 } else if (!result || result.isOk) {
-                    EndPointBuilder.manageEndPointPermissions(req, resp, routeConfig, endPointConfig, endPoint);
+                    EndPointBuilder.manageEndPointPermissions(req, resp, routeConfig, endPointConfig, viewset, key);
                 } else {
                     resp.status(401);
                     resp.json({
@@ -148,7 +158,7 @@ export class EndPointBuilder {
     }
 
     private static manageEndPointPermissions(req: TRFRequest, resp: express.Response, routeConfig: RouteConfigurator,
-        endPointConfig: EndPointConfigurator, endPoint: Function) {
+        endPointConfig: EndPointConfigurator, viewset: ViewSet<any>, key: string) {
         let result: PermissionResult;
         let err: any;
         EndPointBuilder.callPermissions(req, routeConfig, endPointConfig)
@@ -157,9 +167,9 @@ export class EndPointBuilder {
                     EndPointBuilder.manageEndPointError(req, resp, err);
                 } else if (!result || result.isOk) {
                     try {
-                        endPoint(req, resp);
+                        (viewset as any)[key](req, resp);
                     } catch (e) {
-                        EndPointBuilder.manageEndPointError(req, resp, err);
+                        EndPointBuilder.manageEndPointError(req, resp, e);
                     }
                 } else {
                     resp.status(403);

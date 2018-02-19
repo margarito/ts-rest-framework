@@ -12,12 +12,11 @@ import { EndPointConfigurator } from './configurators/end-point.configurator';
 import { RouteManager } from './managers/route.manager';
 import { ViewSet } from './base/viewset';
 import { IsAutenticatedPermission } from './security/permissions/is-authenticated.permission';
+import { Log } from './internal/log';
 import * as path from 'path';
 import * as express from 'express';
-import logger from 'morgan';
 import * as bodyParser from 'body-parser';
 import * as http from 'http';
-import debug from 'debug';
 
 import 'rxjs/add/operator/finally';
 import 'rxjs/add/operator/switchMap';
@@ -42,7 +41,10 @@ export abstract class TsRestFrameworkApp {
 
     // Configure Express middleware.
     private middleware(): void {
-        this.express.use(logger('dev'));
+        this.express.use((req: express.Request, resp: express.Response, next: Function) => {
+            // log things
+            next();
+        });
         this.express.use(bodyParser.json());
         this.express.use(bodyParser.urlencoded({ extended: false }));
     }
@@ -166,9 +168,7 @@ export abstract class TsRestFrameworkApp {
     }
 
     public start() {
-        debug('init database');
         QueryManager.init(this.dbConfig);
-        debug('ts-express:server');
         const port = normalizePort(process.env.PORT || 3000);
         this.express.set('port', port);
 
@@ -193,11 +193,11 @@ export abstract class TsRestFrameworkApp {
             const bind = (typeof port === 'string') ? 'Pipe ' + port : 'Port ' + port;
             switch (error.code) {
                 case 'EACCES':
-                console.error(`${bind} requires elevated privileges`);
+                Log.e(`${bind} requires elevated privileges`);
                 process.exit(1);
                 break;
                 case 'EADDRINUSE':
-                console.error(`${bind} is already in use`);
+                Log.e(`${bind} is already in use`);
                 process.exit(1);
                 break;
                 default:
@@ -208,7 +208,7 @@ export abstract class TsRestFrameworkApp {
         function onListening(): void {
             const addr = server.address();
             const bind = (typeof addr === 'string') ? `pipe ${addr}` : `port ${addr.port}`;
-            debug(`Listening on ${bind}`);
+            Log.i(`Listening on ${bind}`);
         }
     }
 }

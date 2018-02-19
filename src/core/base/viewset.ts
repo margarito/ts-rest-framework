@@ -16,9 +16,9 @@ import { Response } from 'express';
 import { Observable } from 'rxjs/Observable';
 
 export abstract class ViewSet<T extends DbHelperModel> {
-    protected model: {new(): T};
-    protected query: QuerySelect<T>;
-    protected serializer: {new(a?: any, b?: any, c?: any): Serializer<T>};
+    public abstract model: {new(): T};
+    public query: QuerySelect<T>;
+    public serializer: {new(a?: any, b?: any, c?: any): Serializer<T>};
 
     public constructor() {
         if (!this.query) {
@@ -34,6 +34,7 @@ export abstract class ViewSet<T extends DbHelperModel> {
     }
 
     public list(req: TRFRequest, resp: Response) {
+        let is400Sent = false;
         if (req.query.size) {
             const size = parseInt(req.query.pageSize, 10);
             if (isNaN(size)) {
@@ -41,6 +42,7 @@ export abstract class ViewSet<T extends DbHelperModel> {
                 resp.json({
                     reason: 'Invalid page size'
                 });
+                is400Sent = true;
             } else {
                 this.query.setSize(size);
             }
@@ -52,11 +54,26 @@ export abstract class ViewSet<T extends DbHelperModel> {
                 resp.json({
                     reason: 'Invalid page number'
                 });
+                is400Sent = true;
             } else {
-                this.query.setSize(page);
+                this.query.setPage(page);
             }
         }
+        if (is400Sent) {
+            return;
+        }
         Count(this.query).exec().subscribe((totalElementsCount: number) => {
+            const page = new Page();
+            if (totalElementsCount === 0) {
+                page.number = 0;
+                page.size = 0;
+                page.total = 0;
+                page.totalElementsCount = 0;
+                page.content = [];
+                resp.status(200);
+                resp.json(page);
+                return;
+            }
             const divResult = totalElementsCount / this.query.getSize();
             let max = Math.floor(divResult);
             if (divResult === max) {
@@ -64,7 +81,6 @@ export abstract class ViewSet<T extends DbHelperModel> {
             }
             if (this.query.getPage() <= max) {
                 this.query.exec().subscribe((qr: QueryResult<T>) => {
-                    const page = new Page();
                     page.number = this.query.getPage();
                     page.size = this.query.getSize();
                     page.total = max + 1;

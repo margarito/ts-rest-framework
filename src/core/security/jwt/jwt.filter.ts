@@ -9,6 +9,7 @@ import { Request } from 'express';
 import { AuthFilterError } from '../../errors/auth-filter.error';
 import { StringUtils } from '../../utils/string.utils';
 import * as jwt from 'jsonwebtoken';
+import { Log } from '../../internal/log';
 
 export class JWTFilter implements IAuthFilter {
 
@@ -40,7 +41,7 @@ export class JWTFilter implements IAuthFilter {
                 jwt.verify(token, this.config.secret, decodeConfig,
                     (error: jwt.JsonWebTokenError, decoded: string | {[index: string]: any}) => {
                     if (error) {
-                        console.error(error.message || JSON.stringify(error));
+                        Log.e(error.message || JSON.stringify(error));
                         observer.error(new AuthFilterError(error.name + ': ' + error.message));
                     } else if (decoded instanceof String) {
                         observer.error(new AuthFilterError('Token has an invalid payload'));
@@ -49,7 +50,7 @@ export class JWTFilter implements IAuthFilter {
                             const user = this.config.deserializeUser(decoded.user);
                             observer.next(user);
                         } catch (e) {
-                            console.error(e.message || JSON.stringify(e));
+                            Log.e(e.message || JSON.stringify(e));
                             observer.error(new AuthFilterError('Token contains invalid user'));
                         }
                     }
